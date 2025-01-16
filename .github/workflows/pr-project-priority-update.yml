@@ -13,5 +13,5 @@ jobs:
         with:
           github-token: ${{ secrets.PROJECT_TOKEN }}
           script: |
-            const script = require('./scripts/check-r5-priority.js')
+            const script = require('./scripts/prioritization/check-r5-priority.js')
             await script({github})
