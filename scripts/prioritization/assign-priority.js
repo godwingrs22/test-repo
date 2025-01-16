@@ -1,10 +1,4 @@
-const PROJECT_CONFIG = {
-  org: "godwingrs22",
-  projectNumber: 1,
-  projectId: "PVT_kwHOAD1EYc4AwI4d",
-  priorityFieldId: "PVTSSF_lAHOAD1EYc4AwI4dzgmdOIA",
-  statusFieldId: "PVTSSF_lAHOAD1EYc4AwI4dzgmdOFc",
-};
+const { PRIORITIES, ...PROJECT_CONFIG } = require('./project-config');
 
 const updateProjectField = async ({
   github,
@@ -36,15 +30,10 @@ const updateProjectField = async ({
 
 module.exports = async ({ github, context }) => {
   const getPriority = (labels) => {
-    if (labels.includes("contribution/core")) return "R1";
-    if (labels.includes("pr/approved")) return "R2";
-    if (labels.includes("pr/needs-maintainer-review")) return "R3";
-    if (
-      labels.includes("pr/reviewer-clarification-requested") ||
-      labels.includes("pr-linter/exemption-requested")
-    )
-      return "R4";
-
+    if (labels.includes(PRIORITIES.R1.label)) return PRIORITIES.R1.name;
+    if (labels.includes(PRIORITIES.R2.label)) return PRIORITIES.R2.name;
+    if (labels.includes(PRIORITIES.R3.label)) return PRIORITIES.R3.name;
+    if (PRIORITIES.R4.labels.some(label => labels.includes(label))) return PRIORITIES.R4.name;
     return null;
   };
 

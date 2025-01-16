@@ -1,4 +1,4 @@
-name: Project Board Automation
+name: Prioritization Automation
 on:
   pull_request:
     types: [opened, labeled, unlabeled, assigned, unassigned, closed]
@@ -15,5 +15,5 @@ jobs:
         with:
           github-token: ${{ secrets.PROJECT_TOKEN }}
           script: |
-            const script = require('./scripts/prioritization/assign-priority-project.js')
+            const script = require('./scripts/prioritization/assign-priority.js')
             await script({github, context})
