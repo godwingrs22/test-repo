@@ -1,0 +1,23 @@
+name: Project Board Automation
+on:
+  pull_request:
+    types: [opened, labeled, unlabeled, assigned, unassigned, closed]
+  pull_request_review:
+    types: [submitted, dismissed]
+
+permissions:
+  repository-projects: write
+  pull-requests: read
+
+jobs:
+  manage_project_items:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Add PR to Project & Set Priority
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const script = require('./scripts/manage-project-items.js')
+            await script({github, context})
