@@ -107,7 +107,8 @@ const PROJECT_CONFIG = {
         }
       `, {
         input: {
-          projectId: project.organization.projectV2.id,
+            //   projectId: project.organization.projectV2.id,
+              projectId: project.viewer.projectV2.id,
           contentId: pr.node_id
         }
       });
@@ -117,7 +118,9 @@ const PROJECT_CONFIG = {
       if (priority) {
         await updateProjectField({
           github,
-          projectId: project.organization.projectV2.id,
+            // projectId: project.organization.projectV2.id,
+            projectId: project.viewer.projectV2.id,
+
           itemId: addToProjectMutation.addProjectV2ItemById.item.id,
           fieldId: PROJECT_CONFIG.priorityFieldId,
           value: priority
@@ -127,7 +130,9 @@ const PROJECT_CONFIG = {
       // Set initial status to Ready
       await updateProjectField({
         github,
-        projectId: project.organization.projectV2.id,
+        //   projectId: project.organization.projectV2.id,
+          projectId: project.viewer.projectV2.id,
+
         itemId: addToProjectMutation.addProjectV2ItemById.item.id,
         fieldId: PROJECT_CONFIG.statusFieldId,
         value: 'Ready'
