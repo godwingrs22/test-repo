@@ -80,6 +80,15 @@ module.exports = async ({ github, context }) => {
       }
     );
 
+    // Get field options
+    const priorityField = project.viewer.projectV2.fields.nodes.find(
+      (field) => field.id === PROJECT_CONFIG.priorityFieldId
+    );
+
+    const statusField = project.viewer.projectV2.fields.nodes.find(
+      (field) => field.id === PROJECT_CONFIG.statusFieldId
+    );
+
     // Add PR to project
     const addToProjectMutation = await github.graphql(
       `
