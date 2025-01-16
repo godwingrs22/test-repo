@@ -28,13 +28,13 @@ const updateProjectField = async ({
         projectId,
         itemId,
         fieldId,
-        value,
+        value: value ? { singleSelectOptionId: value } : null,
       },
     }
   );
 };
 
-module.exports = async ({ github, context }) => {
+module.exports = async ({ github }) => {
   const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
   const getAttentionStatus = (days) => {
@@ -43,35 +43,6 @@ module.exports = async ({ github, context }) => {
     if (days > 7) return "Extended";
     return null;
   };
-
-  // Query project items with their status history
-  // const items = await github.graphql(`
-  //   query($org: String!, $number: Int!) {
-  //     organization(login: $org) {
-  //       projectV2(number: $number) {
-  //         items(first: 100) {
-  //           nodes {
-  //             id
-  //             fieldValues(first: 20) {
-  //               nodes {
-  //                 ... on ProjectV2ItemFieldSingleSelectValue {
-  //                   name
-  //                   field {
-  //                     name
-  //                   }
-  //                   updatedAt
-  //                 }
-  //               }
-  //             }
-  //           }
-  //         }
-  //       }
-  //     }
-  //   }
-  // `, {
-  //   org: PROJECT_CONFIG.org,
-  //   number: PROJECT_CONFIG.projectNumber
-  // });
 
   const items = await github.graphql(
     `
@@ -104,7 +75,6 @@ module.exports = async ({ github, context }) => {
   );
 
   // Update attention status for each item
-  //   for (const item of items.organization.projectV2.items.nodes) {
   for (const item of items.viewer.projectV2.items.nodes) {
     try {
       // Get current status and its last update time

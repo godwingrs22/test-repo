@@ -44,7 +44,7 @@ module.exports = async ({ github, context }) => {
       labels.includes("pr-linter/exemption-requested")
     )
       return "R4";
-    if (labels.includes("pr/needs-community-review")) return "R5";
+
     return null;
   };
 

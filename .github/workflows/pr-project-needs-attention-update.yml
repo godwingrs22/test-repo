@@ -14,4 +14,4 @@ jobs:
           github-token: ${{ secrets.PROJECT_TOKEN}}
           script: |
             const script = require('./scripts/update-attention-status.js')
-            await script({github, context})
+            await script({github})
