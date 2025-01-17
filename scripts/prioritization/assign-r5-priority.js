@@ -1,5 +1,6 @@
 const { PRIORITIES, ...PROJECT_CONFIG } = require("./project-config");
 
+const MS_PER_HOUR = 1000 * 60 * 60;  // milliseconds in an hour
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
 const updateProjectField = async ({
@@ -109,7 +110,7 @@ module.exports = async ({ github }) => {
 
     const labels = pr.labels.nodes.map((l) => l.name);
     const lastUpdated = new Date(pr.updatedAt);
-    const daysSinceUpdate = (Date.now() - lastUpdated) / MS_PER_DAY;
+    const daysSinceUpdate = (Date.now() - lastUpdated) / MS_PER_HOUR;
 
     const currentPriority = item.fieldValues.nodes.find(
       (fv) => fv.field.name === "Priority"

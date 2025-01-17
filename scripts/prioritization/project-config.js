@@ -26,7 +26,7 @@ const PRIORITIES = {
     name: "R5",
     description: "PRs that are in needs-community-review more than 21 days",
     label: "pr/needs-community-review",
-    daysThreshold: 21,
+    daysThreshold: 1,
   },
 };
 
