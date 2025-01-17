@@ -32,10 +32,10 @@ const updateProjectField = async ({
 };
 
 module.exports = async ({ github }) => {
-  // Get project fields and options
+  // Get open PRs
   const result = await github.graphql(
     `
-      query($owner: String!, $repo: String!) {
+      query($owner: String!, $repo: String!, $number: Int!) {
       repository(owner: $owner, name: $repo) {
         pullRequests(first: 100, states: OPEN) {
           nodes {
