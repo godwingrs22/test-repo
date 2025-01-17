@@ -1,10 +1,4 @@
-// File: scripts/update-attention-status.js
-const PROJECT_CONFIG = {
-  org: "godwingrs22",
-  projectNumber: 1,
-  projectId: "PVT_kwHOAD1EYc4AwI4d",
-  attentionFieldId: "PVTSSF_lAHOAD1EYc4AwI4dzgmdOb0",
-};
+const { ATTENTION_STATUS, ...PROJECT_CONFIG } = require('./project-config');
 
 const updateProjectField = async ({
   github,
@@ -28,50 +22,21 @@ const updateProjectField = async ({
         projectId,
         itemId,
         fieldId,
-        value,
+        value: value ? { singleSelectOptionId: value } : null,
       },
     }
   );
 };
 
-module.exports = async ({ github, context }) => {
+module.exports = async ({ github }) => {
   const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
   const getAttentionStatus = (days) => {
-    if (days > 21) return "Stalled";
-    if (days > 14) return "Aging";
-    if (days > 7) return "Extended";
+    if (days > ATTENTION_STATUS.STALLED.threshold) return ATTENTION_STATUS.STALLED.name;
+    if (days > ATTENTION_STATUS.AGING.threshold) return ATTENTION_STATUS.AGING.name;
+    if (days > ATTENTION_STATUS.EXTENDED.threshold) return ATTENTION_STATUS.EXTENDED.name;
     return null;
   };
-
-  // Query project items with their status history
-  // const items = await github.graphql(`
-  //   query($org: String!, $number: Int!) {
-  //     organization(login: $org) {
-  //       projectV2(number: $number) {
-  //         items(first: 100) {
-  //           nodes {
-  //             id
-  //             fieldValues(first: 20) {
-  //               nodes {
-  //                 ... on ProjectV2ItemFieldSingleSelectValue {
-  //                   name
-  //                   field {
-  //                     name
-  //                   }
-  //                   updatedAt
-  //                 }
-  //               }
-  //             }
-  //           }
-  //         }
-  //       }
-  //     }
-  //   }
-  // `, {
-  //   org: PROJECT_CONFIG.org,
-  //   number: PROJECT_CONFIG.projectNumber
-  // });
 
   const items = await github.graphql(
     `
@@ -104,7 +69,6 @@ module.exports = async ({ github, context }) => {
   );
 
   // Update attention status for each item
-  //   for (const item of items.organization.projectV2.items.nodes) {
   for (const item of items.viewer.projectV2.items.nodes) {
     try {
       // Get current status and its last update time

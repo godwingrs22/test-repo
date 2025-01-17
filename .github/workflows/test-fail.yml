@@ -1,0 +1,26 @@
+name: Test Check Status
+on:
+  workflow_dispatch:
+    inputs:
+      check_status:
+        description: 'Choose check status (FAIL/PASS)'
+        required: true
+        type: choice
+        options:
+          - 'FAIL'
+          - 'PASS'
+        default: 'FAIL'
+
+jobs:
+  test_check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run Test Check
+        run: |
+          if [ "${{ github.event.inputs.check_status }}" = "FAIL" ]; then
+            echo "Making check fail for testing R2 priority"
+            exit 1
+          else
+            echo "Making check pass"
+            exit 0
+          fi
