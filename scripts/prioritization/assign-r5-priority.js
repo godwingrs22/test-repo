@@ -1,86 +1,58 @@
+/**
+ * Monitors open PRs once daily to identify stale community review requests. When a PR
+ * with the community review label hasn't been updated for the specified threshold
+ * period (default 21 days), it's assigned R5 priority. These PRs are added to the
+ * project board and set to Ready status to ensure visibility of long-pending
+ * community reviews.
+ */
+
 const { PRIORITIES, ...PROJECT_CONFIG } = require("./project-config");
 
-const MS_PER_HOUR = 1000 * 60 * 60;  // milliseconds in an hour
+const {
+  updateProjectField,
+  addItemToProject,
+  fetchProjectFields,
+  fetchOpenPullRequests,
+} = require('./project-api');
+
+//TODO change the PER_HOUR TO day
+const MS_PER_HOUR = 1000 * 60 * 60; // milliseconds in an hour
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
-const updateProjectField = async ({
-  github,
-  projectId,
-  itemId,
-  fieldId,
-  value,
-}) => {
-  return github.graphql(
-    `
-      mutation($input: UpdateProjectV2ItemFieldValueInput!) {
-        updateProjectV2ItemFieldValue(input: $input) {
-          projectV2Item {
-            id
-          }
-        }
-      }
-    `,
-    {
-      input: {
-        projectId,
-        itemId,
-        fieldId,
-        value: value ? { singleSelectOptionId: value } : null,
-      },
-    }
-  );
-};
-
 module.exports = async ({ github }) => {
-  // Get open PRs
-  const result = await github.graphql(
-    `
-      query($owner: String!, $repo: String!, $number: Int!) {
-      repository(owner: $owner, name: $repo) {
-        pullRequests(first: 100, states: OPEN) {
-          nodes {
-            id
-            number
-            updatedAt
-            labels(first: 10) {
-              nodes {
-                name
-              }
-            }
-          }
-        }
-      }
-      viewer {
-        projectV2(number: $number) {
-          id
-          fields(first: 20) {
-            nodes {
-              ... on ProjectV2SingleSelectField {
-                id
-                name
-                options {
-                  id
-                  name
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-    `,
-    {
+  let allPRs = [];
+  let hasNextPage = true;
+  let cursor = null;
+
+  // Fetch all PRs using pagination
+  while (hasNextPage) {
+    const result = await fetchOpenPullRequests(github, {
       owner: PROJECT_CONFIG.owner,
       repo: PROJECT_CONFIG.repo,
-      number: PROJECT_CONFIG.projectNumber
-    }
-  );
+      cursor: cursor,
+    });
 
-  const priorityField = result.viewer.projectV2.fields.nodes.find(
+    const pullRequests = result.repository.pullRequests;
+    allPRs = allPRs.concat(pullRequests.nodes);
+
+    // Update pagination info
+    hasNextPage = pullRequests.pageInfo.hasNextPage;
+    cursor = pullRequests.pageInfo.endCursor;
+  }
+
+  console.log(`Total PRs fetched: ${allPRs.length}`);
+
+  // Get project fields
+  const projectFields = await fetchProjectFields({ 
+    github, 
+    number: PROJECT_CONFIG.projectNumber 
+  });
+
+  const priorityField = projectFields.viewer.projectV2.fields.nodes.find(
     (field) => field.id === PROJECT_CONFIG.priorityFieldId
   );
 
-  const statusField = result.viewer.projectV2.fields.nodes.find(
+  const statusField = projectFields.viewer.projectV2.fields.nodes.find(
     (field) => field.id === PROJECT_CONFIG.statusFieldId
   );
 
@@ -92,8 +64,7 @@ module.exports = async ({ github }) => {
     (option) => option.name === "Ready"
   )?.id;
 
-  for (const pr of result.repository.pullRequests.nodes) {
-
+  for (const pr of allPRs) {
     console.log(`Processing PR #${pr.number}`);
 
     const labels = pr.labels.nodes.map((l) => l.name);
@@ -104,33 +75,17 @@ module.exports = async ({ github }) => {
       labels.includes(PRIORITIES.R5.label) &&
       daysSinceUpdate > PRIORITIES.R5.daysThreshold
     ) {
-      console.log(
-        `Updating PR #${pr.number} to ${
-          PRIORITIES.R5.name
-        } priority. Last updated ${daysSinceUpdate.toFixed(1)} days ago.`
-      );
+      console.log(`Updating PR #${pr.number} to ${PRIORITIES.R5.name} priority.`);
 
-      // Add PR to project if not already added
-      const addToProjectMutation = await github.graphql(
-        `
-        mutation($input: AddProjectV2ItemByIdInput!) {
-          addProjectV2ItemById(input: $input) {
-            item {
-              id
-            }
-          }
-        }
-      `,
-        {
-          input: {
-            projectId: PROJECT_CONFIG.projectId,
-            contentId: pr.id,
-          },
-        }
-      );
+      // Add PR to project
+      const addResult = await addItemToProject({
+        github,
+        projectId: PROJECT_CONFIG.projectId,
+        contentId: pr.id,
+      });
 
-      const itemId = addToProjectMutation.addProjectV2ItemById.item.id;
-      
+      const itemId = addResult.addProjectV2ItemById.item.id;
+
       // Update Priority to R5
       await updateProjectField({
         github,

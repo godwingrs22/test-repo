@@ -1,109 +1,53 @@
+/**
+ * Processes open PRs every 4 hours to identify and assign R2 priority. A PR qualifies
+ * for R2 when it has received approval but has failing or pending checks. Qualifying PRs
+ * are added to the project board with R2 priority and set to Ready status.
+ */
+
 const { PRIORITIES, ...PROJECT_CONFIG } = require("./project-config");
 
-const updateProjectField = async ({
-  github,
-  projectId,
-  itemId,
-  fieldId,
-  value,
-}) => {
-  return github.graphql(
-    `
-      mutation($input: UpdateProjectV2ItemFieldValueInput!) {
-        updateProjectV2ItemFieldValue(input: $input) {
-          projectV2Item {
-            id
-          }
-        }
-      }
-    `,
-    {
-      input: {
-        projectId,
-        itemId,
-        fieldId,
-        value: value ? { singleSelectOptionId: value } : null,
-      },
-    }
-  );
-};
+const {
+  updateProjectField,
+  addItemToProject,
+  fetchProjectFields,
+  fetchOpenPullRequests,
+} = require('./project-api');
 
 module.exports = async ({ github }) => {
-  // Get project items with PR data
-  const project = await github.graphql(
-    `
-      query($number: Int!) {
-        viewer {
-          projectV2(number: $number) {
-            id
-            fields(first: 20) {
-              nodes {
-                ... on ProjectV2SingleSelectField {
-                  id
-                  name
-                  options {
-                    id
-                    name
-                  }
-                }
-              }
-            }
-            items(first: 100) {
-              nodes {
-                id
-                content {
-                  ... on PullRequest {
-                    number
-                    state
-                    reviews(last: 100) {
-                      nodes {
-                        state
-                      }
-                    }
-                    commits(last: 1) {
-                      nodes {
-                        commit {
-                          statusCheckRollup {
-                            state
-                          }
-                        }
-                      }
-                    }
-                    labels(first: 10) {
-                      nodes {
-                        name
-                      }
-                    }
-                  }
-                }
-                fieldValues(first: 8) {
-                  nodes {
-                    ... on ProjectV2ItemFieldSingleSelectValue {
-                      name
-                      field {
-                        ... on ProjectV2SingleSelectField {
-                          name
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    `,
-    {
-      number: PROJECT_CONFIG.projectNumber,
-    }
-  );
+  let allPRs = [];
+  let hasNextPage = true;
+  let cursor = null;
 
-  const priorityField = project.viewer.projectV2.fields.nodes.find(
+  // Fetch all PRs using pagination
+  while (hasNextPage) {
+    const result = await fetchOpenPullRequests({
+      github,
+      owner: PROJECT_CONFIG.owner,
+      repo: PROJECT_CONFIG.repo,
+      cursor: cursor,
+    });
+
+    const pullRequests = result.repository.pullRequests;
+    allPRs = allPRs.concat(pullRequests.nodes);
+
+    // Update pagination info
+    hasNextPage = pullRequests.pageInfo.hasNextPage;
+    cursor = pullRequests.pageInfo.endCursor;
+  }
+
+  console.log(`Total PRs fetched: ${allPRs.length}`);
+
+  // Get project fields
+  const projectFields = await fetchProjectFields({ 
+    github, 
+    number: PROJECT_CONFIG.projectNumber 
+  });
+
+  const priorityField = projectFields.viewer.projectV2.fields.nodes.find(
     (field) => field.id === PROJECT_CONFIG.priorityFieldId
   );
 
-  const statusField = project.viewer.projectV2.fields.nodes.find(
+  const statusField = projectFields.viewer.projectV2.fields.nodes.find(
     (field) => field.id === PROJECT_CONFIG.statusFieldId
   );
 
@@ -115,10 +59,9 @@ module.exports = async ({ github }) => {
     (option) => option.name === "Ready"
   )?.id;
 
-  for (const item of project.viewer.projectV2.items.nodes) {
+ for (const pr of allPRs) {
     try {
-      const pr = item.content;
-      if (!pr || pr.state !== "OPEN") continue;
+      console.log(`Processing PR #${pr.number}`);
 
       // Skip if PR has R1 label (higher priority)
       const labels = pr.labels.nodes.map((l) => l.name);
@@ -139,11 +82,20 @@ module.exports = async ({ github }) => {
           `Updating PR #${pr.number} to ${PRIORITIES.R2.name} priority. Approved but checks not passing.`
         );
 
+        // Add PR to project
+        const addResult = await addItemToProject({
+          github,
+          projectId: PROJECT_CONFIG.projectId,
+          contentId: pr.id,
+        });
+
+        const itemId = addResult.addProjectV2ItemById.item.id;
+
         // Update Priority to R2
         await updateProjectField({
           github,
           projectId: PROJECT_CONFIG.projectId,
-          itemId: item.id,
+          itemId: itemId,
           fieldId: PROJECT_CONFIG.priorityFieldId,
           value: r2OptionId,
         });
@@ -152,7 +104,7 @@ module.exports = async ({ github }) => {
         await updateProjectField({
           github,
           projectId: PROJECT_CONFIG.projectId,
-          itemId: item.id,
+          itemId: itemId,
           fieldId: PROJECT_CONFIG.statusFieldId,
           value: readyStatusId,
         });
