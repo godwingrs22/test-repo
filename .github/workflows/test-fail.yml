@@ -10,6 +10,7 @@ on:
         options:
           - 'true'
           - 'false'
+  pull_request:      # Or trigger on PR
 
 jobs:
   failing_check:
