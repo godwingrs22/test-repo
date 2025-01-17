@@ -33,66 +33,54 @@ const updateProjectField = async ({
 
 module.exports = async ({ github }) => {
   // Get project fields and options
-  const project = await github.graphql(
+  const result = await github.graphql(
     `
-      query($number: Int!) {
-        viewer {
-          projectV2(number: $number) {
+      query($owner: String!, $repo: String!) {
+      repository(owner: $owner, name: $repo) {
+        pullRequests(first: 100, states: OPEN) {
+          nodes {
             id
-            fields(first: 20) {
+            number
+            updatedAt
+            labels(first: 10) {
               nodes {
-                ... on ProjectV2SingleSelectField {
-                  id
-                  name
-                  options {
-                    id
-                    name
-                  }
-                }
+                name
               }
             }
-            items(first: 100) {
-              nodes {
+          }
+        }
+      }
+      viewer {
+        projectV2(number: $number) {
+          id
+          fields(first: 20) {
+            nodes {
+              ... on ProjectV2SingleSelectField {
                 id
-                content {
-                  ... on PullRequest {
-                    number
-                    updatedAt
-                    labels(first: 10) {
-                      nodes {
-                        name
-                      }
-                    }
-                  }
-                }
-                fieldValues(first: 8) {
-                  nodes {
-                    ... on ProjectV2ItemFieldSingleSelectValue {
-                      name
-                      field {
-                        ... on ProjectV2SingleSelectField {
-                          name
-                        }
-                      }
-                    }
-                  }
+                name
+                options {
+                  id
+                  name
                 }
               }
             }
           }
         }
       }
+    }
     `,
     {
-      number: PROJECT_CONFIG.projectNumber,
+      owner: PROJECT_CONFIG.owner,
+      repo: PROJECT_CONFIG.repo,
+      number: PROJECT_CONFIG.projectNumber
     }
   );
 
-  const priorityField = project.viewer.projectV2.fields.nodes.find(
+  const priorityField = result.viewer.projectV2.fields.nodes.find(
     (field) => field.id === PROJECT_CONFIG.priorityFieldId
   );
 
-  const statusField = project.viewer.projectV2.fields.nodes.find(
+  const statusField = result.viewer.projectV2.fields.nodes.find(
     (field) => field.id === PROJECT_CONFIG.statusFieldId
   );
 
@@ -104,9 +92,7 @@ module.exports = async ({ github }) => {
     (option) => option.name === "Ready"
   )?.id;
 
-  for (const item of project.viewer.projectV2.items.nodes) {
-    const pr = item.content;
-    if (!pr) continue;
+  for (const pr of result.repository.pullRequests.nodes) {
 
     console.log(`Processing PR #${pr.number}`);
 
@@ -124,11 +110,32 @@ module.exports = async ({ github }) => {
         } priority. Last updated ${daysSinceUpdate.toFixed(1)} days ago.`
       );
 
+      // Add PR to project if not already added
+      const addToProjectMutation = await github.graphql(
+        `
+        mutation($input: AddProjectV2ItemByIdInput!) {
+          addProjectV2ItemById(input: $input) {
+            item {
+              id
+            }
+          }
+        }
+      `,
+        {
+          input: {
+            projectId: PROJECT_CONFIG.projectId,
+            contentId: pr.id,
+          },
+        }
+      );
+
+      const itemId = addToProjectMutation.addProjectV2ItemById.item.id;
+      
       // Update Priority to R5
       await updateProjectField({
         github,
         projectId: PROJECT_CONFIG.projectId,
-        itemId: item.id,
+        itemId: itemId,
         fieldId: PROJECT_CONFIG.priorityFieldId,
         value: r5OptionId,
       });
@@ -137,7 +144,7 @@ module.exports = async ({ github }) => {
       await updateProjectField({
         github,
         projectId: PROJECT_CONFIG.projectId,
-        itemId: item.id,
+        itemId: itemId,
         fieldId: PROJECT_CONFIG.statusFieldId,
         value: readyStatusId,
       });
