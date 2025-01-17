@@ -1,5 +1,5 @@
 /**
- * Monitors open PRs once daily to identify stale community review requests. When a PR
+ * Monitors open PRs once daily during weekdays to identify stale community review requests. When a PR
  * with the community review label hasn't been updated for the specified threshold
  * period (default 21 days), it's assigned R5 priority. These PRs are added to the
  * project board and set to Ready status to ensure visibility of long-pending
@@ -66,8 +66,6 @@ module.exports = async ({ github }) => {
   )?.id;
 
   for (const pr of allPRs) {
-    console.log(`Processing PR #${pr.number}`);
-
     const labels = pr.labels.nodes.map((l) => l.name);
     const lastUpdated = new Date(pr.updatedAt);
     const daysSinceUpdate = (Date.now() - lastUpdated) / MS_PER_HOUR;

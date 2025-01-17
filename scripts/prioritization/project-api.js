@@ -149,7 +149,48 @@ const updateProjectField = async ({
       { owner, repo, cursor }
     );
   };
-  
+
+  /**
+ * Fetches project item details for a specific PR
+ * @param {Object} params - The parameters for fetching project item details
+ * @param {Object} params.github - The GitHub API client
+ * @param {string} params.owner - Repository owner
+ * @param {string} params.repo - Repository name
+ * @param {number} params.number - PR number
+ * @param {string} params.projectId - Project ID
+ * @returns {Promise<Object>} Project item details if PR is in project
+ */
+  const fetchProjectItem = async ({ github, owner, repo, number, projectId }) => {
+    return github.graphql(
+      `
+      query($owner: String!, $repo: String!, $number: Int!, $projectId: ID!) {
+        repository(owner: $owner, name: $repo) {
+          pullRequest(number: $number) {
+            projectItems(first: 1, filterBy: {projectId: $projectId}) {
+              nodes {
+                id
+                fieldValues(first: 8) {
+                  nodes {
+                    ... on ProjectV2ItemFieldSingleSelectValue {
+                      name
+                      field {
+                        ... on ProjectV2SingleSelectField {
+                          name
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+      `,
+      { owner, repo, number, projectId }
+    );
+  };
+
   module.exports = {
     updateProjectField,
     addItemToProject,

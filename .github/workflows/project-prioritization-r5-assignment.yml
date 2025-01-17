@@ -1,6 +1,7 @@
 name: PR Prioritization R5 Check
 on:
   schedule:
+    # - cron: '0 6 * * 1-5'  # Runs at 6AM every day during weekdays
     - cron: '0 */1 * * *' # Runs every 1 hours
   workflow_dispatch:        # Manual trigger
 
