@@ -26,7 +26,8 @@ module.exports = async ({ github }) => {
 
   // Fetch all PRs using pagination
   while (hasNextPage) {
-    const result = await fetchOpenPullRequests(github, {
+    const result = await fetchOpenPullRequests({
+      github,
       owner: PROJECT_CONFIG.owner,
       repo: PROJECT_CONFIG.repo,
       cursor: cursor,
