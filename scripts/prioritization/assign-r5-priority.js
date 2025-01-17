@@ -108,18 +108,15 @@ module.exports = async ({ github }) => {
     const pr = item.content;
     if (!pr) continue;
 
+    console.log(`Processing PR #${pr.number}`);
+
     const labels = pr.labels.nodes.map((l) => l.name);
     const lastUpdated = new Date(pr.updatedAt);
     const daysSinceUpdate = (Date.now() - lastUpdated) / MS_PER_HOUR;
 
-    const currentPriority = item.fieldValues.nodes.find(
-      (fv) => fv.field.name === "Priority"
-    )?.name;
-
     if (
       labels.includes(PRIORITIES.R5.label) &&
-      daysSinceUpdate > PRIORITIES.R5.daysThreshold &&
-      currentPriority !== PRIORITIES.R5.name
+      daysSinceUpdate > PRIORITIES.R5.daysThreshold
     ) {
       console.log(
         `Updating PR #${pr.number} to ${
