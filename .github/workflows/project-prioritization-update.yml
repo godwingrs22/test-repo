@@ -2,6 +2,7 @@ name: PR Prioritization Update
 on:
   schedule:
     - cron: '0 */4 * * *' # Runs every 4 hours
+  workflow_dispatch:        # Manual trigger
 
 jobs:
   update_project_status:

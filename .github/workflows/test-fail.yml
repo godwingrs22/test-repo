@@ -1,0 +1,13 @@
+name: Test Failing Check
+on:
+  workflow_dispatch:  # Manual trigger
+  pull_request:      # Or trigger on PR
+
+jobs:
+  failing_check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail This Check
+        run: |
+          echo "Making check fail for testing"
+          exit 1  # This makes the check fail
