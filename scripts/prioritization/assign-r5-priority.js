@@ -91,8 +91,16 @@ module.exports = async ({ github }) => {
     (field) => field.id === PROJECT_CONFIG.priorityFieldId
   );
 
+  const statusField = project.viewer.projectV2.fields.nodes.find(
+    (field) => field.id === PROJECT_CONFIG.statusFieldId
+  );
+
   const r5OptionId = priorityField.options.find(
     (option) => option.name === PRIORITIES.R5.name
+  )?.id;
+
+  const readyStatusId = statusField.options.find(
+    (option) => option.name === "Ready"
   )?.id;
 
   for (const item of project.viewer.projectV2.items.nodes) {
@@ -109,7 +117,7 @@ module.exports = async ({ github }) => {
 
     if (
       labels.includes(PRIORITIES.R5.label) &&
-      daysSinceUpdate > daysSinceUpdate > PRIORITIES.R5.daysThreshold &&
+      daysSinceUpdate > PRIORITIES.R5.daysThreshold &&
       currentPriority !== PRIORITIES.R5.name
     ) {
       console.log(
@@ -118,12 +126,22 @@ module.exports = async ({ github }) => {
         } priority. Last updated ${daysSinceUpdate.toFixed(1)} days ago.`
       );
 
+      // Update Priority to R5
       await updateProjectField({
         github,
         projectId: PROJECT_CONFIG.projectId,
         itemId: item.id,
         fieldId: PROJECT_CONFIG.priorityFieldId,
         value: r5OptionId,
+      });
+
+      // Update Status to Ready
+      await updateProjectField({
+        github,
+        projectId: PROJECT_CONFIG.projectId,
+        itemId: item.id,
+        fieldId: PROJECT_CONFIG.statusFieldId,
+        value: readyStatusId,
       });
     }
   }

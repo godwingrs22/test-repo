@@ -31,7 +31,6 @@ const updateProjectField = async ({
 module.exports = async ({ github, context }) => {
   const getPriority = (labels) => {
     if (labels.includes(PRIORITIES.R1.label)) return PRIORITIES.R1.name;
-    if (labels.includes(PRIORITIES.R2.label)) return PRIORITIES.R2.name;
     if (labels.includes(PRIORITIES.R3.label)) return PRIORITIES.R3.name;
     if (PRIORITIES.R4.labels.some(label => labels.includes(label))) return PRIORITIES.R4.name;
     return null;

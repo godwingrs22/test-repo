@@ -1,12 +1,10 @@
-name: Prioritization Automation
+name: Project prioritization
 on:
   pull_request:
-    types: [opened, labeled, unlabeled, assigned, unassigned, closed]
-  pull_request_review:
-    types: [submitted, dismissed]
+    types: [labeled]
 
 jobs:
-  manage_project_items:
+  initial_assignment:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
