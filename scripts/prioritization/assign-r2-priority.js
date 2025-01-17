@@ -133,35 +133,29 @@ module.exports = async ({ github }) => {
       const checksState = pr.commits.nodes[0]?.commit.statusCheckRollup?.state;
       const checksNotPassing = checksState !== "SUCCESS";
 
-      const currentPriority = item.fieldValues.nodes.find(
-        (fv) => fv.field.name === "Priority"
-      )?.name;
-
       if (isApproved && checksNotPassing) {
         // Update to R2 if not already set
-        if (currentPriority !== PRIORITIES.R2.name) {
-          console.log(
-            `Updating PR #${pr.number} to ${PRIORITIES.R2.name} priority. Approved but checks not passing.`
-          );
+        console.log(
+          `Updating PR #${pr.number} to ${PRIORITIES.R2.name} priority. Approved but checks not passing.`
+        );
 
-          // Update Priority to R2
-          await updateProjectField({
-            github,
-            projectId: PROJECT_CONFIG.projectId,
-            itemId: item.id,
-            fieldId: PROJECT_CONFIG.priorityFieldId,
-            value: r2OptionId,
-          });
+        // Update Priority to R2
+        await updateProjectField({
+          github,
+          projectId: PROJECT_CONFIG.projectId,
+          itemId: item.id,
+          fieldId: PROJECT_CONFIG.priorityFieldId,
+          value: r2OptionId,
+        });
 
-          // Update Status to Ready
-          await updateProjectField({
-            github,
-            projectId: PROJECT_CONFIG.projectId,
-            itemId: item.id,
-            fieldId: PROJECT_CONFIG.statusFieldId,
-            value: readyStatusId,
-          });
-        }
+        // Update Status to Ready
+        await updateProjectField({
+          github,
+          projectId: PROJECT_CONFIG.projectId,
+          itemId: item.id,
+          fieldId: PROJECT_CONFIG.statusFieldId,
+          value: readyStatusId,
+        });
       }
     } catch (error) {
       console.error(`Error processing item:`, error);
