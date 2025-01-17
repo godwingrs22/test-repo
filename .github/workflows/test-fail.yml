@@ -1,27 +1,26 @@
-name: Test Failing Check
+name: Test Check Status
 on:
   workflow_dispatch:
     inputs:
-      should_fail:
-        description: 'Should this check fail?'
+      check_status:
+        description: 'Choose check status (FAIL/PASS)'
         required: true
-        default: 'true'
         type: choice
         options:
-          - 'true'
-          - 'false'
-  pull_request:      # Or trigger on PR
+          - 'FAIL'
+          - 'PASS'
+        default: 'FAIL'
 
 jobs:
-  failing_check:
+  test_check:
     runs-on: ubuntu-latest
     steps:
-      - name: Conditional Check
+      - name: Run Test Check
         run: |
-          if [ "${{ github.event.inputs.should_fail || 'true' }}" = "true" ]; then
-            echo "Making check fail for testing"
+          if [ "${{ github.event.inputs.check_status }}" = "FAIL" ]; then
+            echo "Making check fail for testing R2 priority"
             exit 1
           else
-            echo "Making check pass for testing"
+            echo "Making check pass"
             exit 0
           fi
