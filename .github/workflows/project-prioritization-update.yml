@@ -1,4 +1,4 @@
-name: Update Project Status
+name: PR Prioritization Update
 on:
   schedule:
     - cron: '0 */4 * * *' # Runs every 4 hours
