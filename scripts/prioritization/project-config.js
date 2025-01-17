@@ -50,6 +50,7 @@ const ATTENTION_STATUS = {
 
 module.exports = {
   owner: "godwingrs22",
+  repo: 'test-repo',
   projectNumber: 1,
   projectId: "PVT_kwHOAD1EYc4AwI4d",
   priorityFieldId: "PVTSSF_lAHOAD1EYc4AwI4dzgmdOIA",
