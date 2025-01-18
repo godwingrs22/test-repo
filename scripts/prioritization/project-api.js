@@ -162,11 +162,14 @@ const updateProjectField = async ({
     return github.graphql(
       `
       query($projectId: ID!, $contentId: ID!) {
-        node(id: $projectId) {
-          ... on ProjectV2 {
-            items(first: 1, filterBy: {contentId: $contentId}) {
+        node(id: $contentId) {
+          ... on PullRequest {
+            projectItems(first: 1) {
               nodes {
                 id
+                project {
+                  id
+                }
                 fieldValues(first: 8) {
                   nodes {
                     ... on ProjectV2ItemFieldSingleSelectValue {
