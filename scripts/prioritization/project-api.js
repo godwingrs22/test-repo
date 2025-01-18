@@ -151,22 +151,20 @@ const updateProjectField = async ({
   };
 
   /**
- * Fetches project item details for a specific PR
- * @param {Object} params - The parameters for fetching project item details
- * @param {Object} params.github - The GitHub API client
- * @param {string} params.owner - Repository owner
- * @param {string} params.repo - Repository name
- * @param {number} params.number - PR number
- * @param {string} params.projectId - Project ID
- * @returns {Promise<Object>} Project item details if PR is in project
- */
-  const fetchProjectItem = async ({ github, owner, repo, number, projectId }) => {
+   * Fetches project item details for a specific PR
+   * @param {Object} params - The parameters for fetching project item
+   * @param {Object} params.github - The GitHub API client
+   * @param {string} params.projectId - Project ID
+   * @param {string} params.contentId - PR node ID
+   * @returns {Promise<Object>} Project item details if PR is in project
+   */
+  const fetchProjectItem = async ({ github, projectId, contentId }) => {
     return github.graphql(
       `
-      query($owner: String!, $repo: String!, $number: Int!, $projectId: ID!) {
-        repository(owner: $owner, name: $repo) {
-          pullRequest(number: $number) {
-            projectItems(first: 1, filterBy: {projectId: $projectId}) {
+      query($projectId: ID!, $contentId: ID!) {
+        node(id: $projectId) {
+          ... on ProjectV2 {
+            items(first: 1, filterBy: {contentId: $contentId}) {
               nodes {
                 id
                 fieldValues(first: 8) {
@@ -187,7 +185,7 @@ const updateProjectField = async ({
         }
       }
       `,
-      { owner, repo, number, projectId }
+      { projectId, contentId }
     );
   };
 
@@ -196,4 +194,5 @@ const updateProjectField = async ({
     addItemToProject,
     fetchProjectFields,
     fetchOpenPullRequests,
+    fetchProjectItem
   };
