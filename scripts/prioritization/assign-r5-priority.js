@@ -85,7 +85,9 @@ module.exports = async ({ github }) => {
         contentId: pr.id
       });
 
-      const projectItem = result.node.items.nodes[0];
+      // Find item in this project
+      const projectItem = result.node.projectItems.nodes
+        .find(item => item.project.id === PROJECT_CONFIG.projectId);
       
       // Skip if PR is already in project
       if (projectItem) {
