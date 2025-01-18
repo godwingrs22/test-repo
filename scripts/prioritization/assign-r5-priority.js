@@ -1,5 +1,5 @@
 /**
- * Monitors open PRs once daily to identify stale community review requests. When a PR
+ * Monitors open PRs once daily during weekdays to identify stale community review requests. When a PR
  * with the community review label hasn't been updated for the specified threshold
  * period (default 21 days), it's assigned R5 priority. These PRs are added to the
  * project board and set to Ready status to ensure visibility of long-pending
@@ -13,6 +13,7 @@ const {
   addItemToProject,
   fetchProjectFields,
   fetchOpenPullRequests,
+  fetchProjectItem,
 } = require('./project-api');
 
 //TODO change the PER_HOUR TO day
@@ -44,9 +45,9 @@ module.exports = async ({ github }) => {
   console.log(`Total PRs fetched: ${allPRs.length}`);
 
   // Get project fields
-  const projectFields = await fetchProjectFields({ 
-    github, 
-    number: PROJECT_CONFIG.projectNumber 
+  const projectFields = await fetchProjectFields({
+    github,
+    number: PROJECT_CONFIG.projectNumber
   });
 
   const priorityField = projectFields.viewer.projectV2.fields.nodes.find(
@@ -66,44 +67,61 @@ module.exports = async ({ github }) => {
   )?.id;
 
   for (const pr of allPRs) {
-    console.log(`Processing PR #${pr.number}`);
-
     const labels = pr.labels.nodes.map((l) => l.name);
     const lastUpdated = new Date(pr.updatedAt);
     const daysSinceUpdate = (Date.now() - lastUpdated) / MS_PER_HOUR;
 
-    if (
-      labels.includes(PRIORITIES.R5.label) &&
-      daysSinceUpdate > PRIORITIES.R5.daysThreshold
-    ) {
-      console.log(`Updating PR #${pr.number} to ${PRIORITIES.R5.name} priority.`);
+    if (!labels.includes(PRIORITIES.R5.label) || daysSinceUpdate <= PRIORITIES.R5.daysThreshold) {
+      continue;
+    }
 
-      // Add PR to project
+    console.log(`Processing PR #${pr.number} for R5 priority consideration`);
+
+    try {
+      // Check if PR is already in project
+      const result = await fetchProjectItem({
+        github,
+        projectId: PROJECT_CONFIG.projectId,
+        contentId: pr.id
+      });
+
+      const projectItem = result.node.items.nodes[0];
+      
+      // Skip if PR is already in project
+      if (projectItem) {
+        console.log(`PR #${pr.number} is already in project. Skipping.`);
+        continue;
+      }
+
+      // Add new PR to project with R5 priority
+      console.log(`Adding PR #${pr.number} to project with ${PRIORITIES.R5.name} priority`);
+      
       const addResult = await addItemToProject({
         github,
         projectId: PROJECT_CONFIG.projectId,
         contentId: pr.id,
       });
 
-      const itemId = addResult.addProjectV2ItemById.item.id;
-
-      // Update Priority to R5
-      await updateProjectField({
-        github,
-        projectId: PROJECT_CONFIG.projectId,
-        itemId: itemId,
-        fieldId: PROJECT_CONFIG.priorityFieldId,
-        value: r5OptionId,
-      });
-
-      // Update Status to Ready
-      await updateProjectField({
-        github,
-        projectId: PROJECT_CONFIG.projectId,
-        itemId: itemId,
-        fieldId: PROJECT_CONFIG.statusFieldId,
-        value: readyStatusId,
-      });
+      // Set initial priority and status
+      await Promise.all([
+        updateProjectField({
+          github,
+          projectId: PROJECT_CONFIG.projectId,
+          itemId: addResult.addProjectV2ItemById.item.id,
+          fieldId: PROJECT_CONFIG.priorityFieldId,
+          value: r5OptionId,
+        }),
+        updateProjectField({
+          github,
+          projectId: PROJECT_CONFIG.projectId,
+          itemId: addResult.addProjectV2ItemById.item.id,
+          fieldId: PROJECT_CONFIG.statusFieldId,
+          value: readyStatusId,
+        })
+      ]);
+    } catch (error) {
+      console.error(`Error processing PR #${pr.number}:`, error);
+      continue;
     }
-  }
-};
+}
+}

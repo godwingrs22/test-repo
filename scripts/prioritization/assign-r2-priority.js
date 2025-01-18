@@ -1,5 +1,5 @@
 /**
- * Processes open PRs every 4 hours to identify and assign R2 priority. A PR qualifies
+ * Processes open PRs every 6 hours during weekdays to identify and assign R2 priority. A PR qualifies
  * for R2 when it has received approval but has failing or pending checks. Qualifying PRs
  * are added to the project board with R2 priority and set to Ready status.
  */
