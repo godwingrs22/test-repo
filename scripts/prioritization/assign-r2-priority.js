@@ -86,33 +86,32 @@ module.exports = async ({ github }) => {
      
       console.log(`Processing PR #${pr.number} for ${PRIORITIES.R2} priority consideration`);
 
-      // Check if PR is already in project
+       // Get all projects the PR added to
       const result = await fetchProjectItem({
         github,
-        projectId: PROJECT_CONFIG.projectId,
         contentId: pr.id
       });
 
-      let itemId;
-      if (result.node.projectItems.nodes.length > 0) {
+      // Filter our specific project
+      const projectItem = result.node.projectItems.nodes
+        .find(item => item.project.id === PROJECT_CONFIG.projectId);
+     
+      if (projectItem) {
         // PR already in project
-        itemId = result.node.projectItems.nodes[0].id;
-        const currentFields = result.node.projectItems.nodes[0].fieldValues.nodes;
-        const currentPriority = currentFields.find(
-          fv => fv.field?.name === 'Priority'
-        )?.name;
-
+        const currentPriority = projectItem.fieldValues.nodes
+          .find(fv => fv.field?.name === 'Priority')?.name;
+  
         if (currentPriority === PRIORITIES.R2) {
           console.log(`PR #${pr.number} already has ${PRIORITIES.R2} priority. Skipping.`);
           continue;
         }
-
+  
         // Update priority only, maintain existing status
         console.log(`Updating PR #${pr.number} from ${currentPriority} to ${PRIORITIES.R2} priority`);
         await updateProjectField({
           github,
           projectId: PROJECT_CONFIG.projectId,
-          itemId: itemId,
+          itemId: projectItem.id,
           fieldId: PROJECT_CONFIG.priorityFieldId,
           value: r2OptionId,
         });
