@@ -1,34 +1,21 @@
-const PRIORITIES = {
-  R1: {
-    name: "R1",
-    description: "PRs from the team",
-    label: "contribution/core",
-  },
-  R2: {
-    name: "R2",
-    description: "Already approved PRs but stuck in the automation",
-    label: "pr/approved",
-  },
-  R3: {
-    name: "R3",
-    description: "PRs that needs maintainer review",
-    label: "pr/needs-maintainer-review",
-  },
-  R4: {
-    name: "R4",
-    description: "PRs that needs clarification or exemption",
-    labels: [
-      "pr/reviewer-clarification-requested",
-      "pr-linter/exemption-requested",
-    ],
-  },
-  R5: {
-    name: "R5",
-    description: "PRs that are in needs-community-review more than 21 days",
-    label: "pr/needs-community-review",
-    daysThreshold: 1,
-  },
+const LABELS = {
+  CORE: 'contribution/core',
+  MAINTAINER_REVIEW: 'pr/needs-maintainer-review',
+  COMMUNITY_REVIEW: 'pr/needs-community-review',
+  CLARIFICATION_REQUESTED: 'pr/reviewer-clarification-requested',
+  EXEMPTION_REQUESTED: 'pr-linter/exemption-requested'
 };
+
+const PRIORITIES = {
+  R1: 'R1',
+  R2: 'R2',
+  R3: 'R3',
+  R4: 'R4',
+  R5: 'R5'
+};
+
+// Time threshold for R5
+const DAYS_THRESHOLD = 1;
 
 const ATTENTION_STATUS = {
   STALLED: {
@@ -56,6 +43,8 @@ module.exports = {
   priorityFieldId: "PVTSSF_lAHOAD1EYc4AwI4dzgmdOIA",
   statusFieldId: "PVTSSF_lAHOAD1EYc4AwI4dzgmdOFc",
   attentionFieldId: "PVTSSF_lAHOAD1EYc4AwI4dzgmdOb0",
+  LABELS,
   PRIORITIES,
-  ATTENTION_STATUS
+  ATTENTION_STATUS,
+  DAYS_THRESHOLD
 };

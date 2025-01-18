@@ -7,7 +7,7 @@
  */
 
 
-const { PRIORITIES, ...PROJECT_CONFIG } = require('./project-config');
+const { PRIORITIES, LABELS, ...PROJECT_CONFIG } = require('./project-config');
 const {
   updateProjectField,
   addItemToProject,
@@ -15,17 +15,47 @@ const {
 } = require('./project-api');
 
 module.exports = async ({ github, context }) => {
-  const getPriority = (labels) => {
-    if (labels.includes(PRIORITIES.R1.label)) return PRIORITIES.R1.name;
-    if (labels.includes(PRIORITIES.R3.label)) return PRIORITIES.R3.name;
-    if (PRIORITIES.R4.labels.some(label => labels.includes(label))) return PRIORITIES.R4.name;
+  const getPriority = (pr) => {
+    const labels = pr.labels.map((l) => l.name);
+    const isDraft = pr.draft === true;
+
+    const hasExemptionOrClarification = labels.some(label => 
+      [LABELS.CLARIFICATION_REQUESTED, LABELS.EXEMPTION_REQUESTED].includes(label)
+    );
+
+    // R1: Not draft + contribution/core
+    if (!isDraft && labels.includes(LABELS.CORE)) {
+      return PRIORITIES.R1;
+    }
+
+    // R3: Not draft + needs-maintainer-review + no contribution/core + no exemption/clarification
+    if (!isDraft && 
+      labels.includes(LABELS.MAINTAINER_REVIEW) && 
+      !labels.includes(LABELS.CORE) && 
+      !hasExemptionOrClarification) {
+    return PRIORITIES.R3;
+  }
+
+    // R4: Three conditions (draft allowed)
+    if (hasExemptionOrClarification && (
+      // Condition 1: With community review
+      labels.includes(LABELS.COMMUNITY_REVIEW) ||
+      // Condition 2: With maintainer review
+      labels.includes(LABELS.MAINTAINER_REVIEW) ||
+      // Condition 3: No community or maintainer review
+      (!labels.includes(LABELS.COMMUNITY_REVIEW) && 
+       !labels.includes(LABELS.MAINTAINER_REVIEW))
+    )) {
+      return PRIORITIES.R4;
+    }
+
     return null;
   };
 
   async function addToProject(pr) {
 
      // Check if PR qualifies for any priority
-     const priority = getPriority(pr.labels.map((l) => l.name));
+     const priority = getPriority(pr);
      if (!priority) {
        console.log(`PR #${pr.number} doesn't qualify for any priority. Skipping.`);
        return;
