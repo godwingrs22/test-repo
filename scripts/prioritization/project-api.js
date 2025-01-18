@@ -154,17 +154,16 @@ const updateProjectField = async ({
    * Fetches project item details for a specific PR
    * @param {Object} params - The parameters for fetching project item
    * @param {Object} params.github - The GitHub API client
-   * @param {string} params.projectId - Project ID
    * @param {string} params.contentId - PR node ID
    * @returns {Promise<Object>} Project item details if PR is in project
    */
-  const fetchProjectItem = async ({ github, projectId, contentId }) => {
+  const fetchProjectItem = async ({ github, contentId }) => {
     return github.graphql(
       `
-      query($projectId: ID!, $contentId: ID!) {
+      query($contentId: ID!) {
         node(id: $contentId) {
           ... on PullRequest {
-            projectItems(first: 1) {
+            projectItems(first: 100) {
               nodes {
                 id
                 project {
@@ -188,7 +187,7 @@ const updateProjectField = async ({
         }
       }
       `,
-      { projectId, contentId }
+      { contentId }
     );
   };
 

@@ -96,14 +96,13 @@ module.exports = async ({ github }) => {
     console.log(`Processing PR #${pr.number} for ${PRIORITIES.R5} priority consideration`);
 
     try {
-      // Check if PR is already in project
+      // Get all projects the PR added to
       const result = await fetchProjectItem({
         github,
-        projectId: PROJECT_CONFIG.projectId,
         contentId: pr.id
       });
 
-      // Find item in this project
+      // Filter specific project
       const projectItem = result.node.projectItems.nodes
         .find(item => item.project.id === PROJECT_CONFIG.projectId);
       
