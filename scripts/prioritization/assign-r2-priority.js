@@ -1,17 +1,20 @@
 /**
  * Processes open PRs every 6 hours during weekdays to identify and assign R2 priority. A PR qualifies
- * for R2 when it has received approval but has failing or pending checks. Qualifying PRs
- * are added to the project board with R2 priority and set to Ready status.
+ * for R2 when it has received approval but has failing or pending checks, regardless of its current
+ * priority or status. These PRs are either added to the project board with R2 priority and Ready status
+ * (if not already in board) or updated to R2 priority (if already in board with different priority).
  */
 
-const { PRIORITIES, ...PROJECT_CONFIG } = require("./project-config");
+const { PRIORITIES, LABELS, ...PROJECT_CONFIG } = require("./project-config");
 
 const {
   updateProjectField,
   addItemToProject,
   fetchProjectFields,
   fetchOpenPullRequests,
+  fetchProjectItem,
 } = require('./project-api');
+
 
 module.exports = async ({ github }) => {
   let allPRs = [];
@@ -52,7 +55,7 @@ module.exports = async ({ github }) => {
   );
 
   const r2OptionId = priorityField.options.find(
-    (option) => option.name === PRIORITIES.R2.name
+    (option) => option.name === PRIORITIES.R2
   )?.id;
 
   const readyStatusId = statusField.options.find(
@@ -60,38 +63,52 @@ module.exports = async ({ github }) => {
   )?.id;
 
  for (const pr of allPRs) {
-    try {
-      console.log(`Processing PR #${pr.number}`);
-
-      // Skip if PR has R1 label (higher priority)
-      const labels = pr.labels.nodes.map((l) => l.name);
-      if (labels.includes(PRIORITIES.R1.label)) continue;
-
-      // Check if PR is approved
+   try {
+     
+      // Check PR status
       const isApproved = pr.reviews.nodes.some(
         (review) => review.state === "APPROVED"
       );
 
+     // Skip if PR is not approved
+      if (!isApproved) {
+        continue;
+      }
+     
       // Check status of checks
       const checksState = pr.commits.nodes[0]?.commit.statusCheckRollup?.state;
       const checksNotPassing = checksState !== "SUCCESS";
 
-      if (isApproved && checksNotPassing) {
-        // Update to R2 if not already set
-        console.log(
-          `Updating PR #${pr.number} to ${PRIORITIES.R2.name} priority. Approved but checks not passing.`
-        );
+     // Skip if PR checks is not passing
+      if (!checksNotPassing) {
+        continue;
+      }
+     
+      console.log(`Processing PR #${pr.number} for ${PRIORITIES.R2} priority consideration`);
 
-        // Add PR to project
-        const addResult = await addItemToProject({
-          github,
-          projectId: PROJECT_CONFIG.projectId,
-          contentId: pr.id,
-        });
+      // Check if PR is already in project
+      const result = await fetchProjectItem({
+        github,
+        projectId: PROJECT_CONFIG.projectId,
+        contentId: pr.id
+      });
 
-        const itemId = addResult.addProjectV2ItemById.item.id;
+      let itemId;
+      if (result.node.projectItems.nodes.length > 0) {
+        // PR already in project
+        itemId = result.node.projectItems.nodes[0].id;
+        const currentFields = result.node.projectItems.nodes[0].fieldValues.nodes;
+        const currentPriority = currentFields.find(
+          fv => fv.field?.name === 'Priority'
+        )?.name;
 
-        // Update Priority to R2
+        if (currentPriority === PRIORITIES.R2) {
+          console.log(`PR #${pr.number} already has ${PRIORITIES.R2} priority. Skipping.`);
+          continue;
+        }
+
+        // Update priority only, maintain existing status
+        console.log(`Updating PR #${pr.number} from ${currentPriority} to ${PRIORITIES.R2} priority`);
         await updateProjectField({
           github,
           projectId: PROJECT_CONFIG.projectId,
@@ -99,18 +116,36 @@ module.exports = async ({ github }) => {
           fieldId: PROJECT_CONFIG.priorityFieldId,
           value: r2OptionId,
         });
-
-        // Update Status to Ready
-        await updateProjectField({
+      } else {
+        // Add new PR to project with R2 priority and Ready status
+        console.log(`Adding PR #${pr.number} to project with ${PRIORITIES.R2} priority`);
+        const addResult = await addItemToProject({
           github,
           projectId: PROJECT_CONFIG.projectId,
-          itemId: itemId,
-          fieldId: PROJECT_CONFIG.statusFieldId,
-          value: readyStatusId,
+          contentId: pr.id,
         });
+        itemId = addResult.addProjectV2ItemById.item.id;
+
+        // Set both priority and initial status for new items
+        await Promise.all([
+          updateProjectField({
+            github,
+            projectId: PROJECT_CONFIG.projectId,
+            itemId: itemId,
+            fieldId: PROJECT_CONFIG.priorityFieldId,
+            value: r2OptionId,
+          }),
+          updateProjectField({
+            github,
+            projectId: PROJECT_CONFIG.projectId,
+            itemId: itemId,
+            fieldId: PROJECT_CONFIG.statusFieldId,
+            value: readyStatusId,
+          })
+        ]);
       }
     } catch (error) {
-      console.error(`Error processing item:`, error);
+      console.error(`Error processing PR #${pr.number}:`, error);
       continue;
     }
   }

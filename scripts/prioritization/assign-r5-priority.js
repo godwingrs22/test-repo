@@ -6,7 +6,7 @@
  * community reviews.
  */
 
-const { PRIORITIES, ...PROJECT_CONFIG } = require("./project-config");
+const { PRIORITIES, LABELS, DAYS_THRESHOLD, ...PROJECT_CONFIG } = require("./project-config");
 
 const {
   updateProjectField,
@@ -59,7 +59,7 @@ module.exports = async ({ github }) => {
   );
 
   const r5OptionId = priorityField.options.find(
-    (option) => option.name === PRIORITIES.R5.name
+    (option) => option.name === PRIORITIES.R5
   )?.id;
 
   const readyStatusId = statusField.options.find(
@@ -68,14 +68,32 @@ module.exports = async ({ github }) => {
 
   for (const pr of allPRs) {
     const labels = pr.labels.nodes.map((l) => l.name);
-    const lastUpdated = new Date(pr.updatedAt);
-    const daysSinceUpdate = (Date.now() - lastUpdated) / MS_PER_HOUR;
+    const isDraft = pr.draft === true;
 
-    if (!labels.includes(PRIORITIES.R5.label) || daysSinceUpdate <= PRIORITIES.R5.daysThreshold) {
+    // Skip draft PRs
+    if (isDraft) {
+      console.log(`Skipping draft PR #${pr.number}`);
       continue;
     }
 
-    console.log(`Processing PR #${pr.number} for R5 priority consideration`);
+    const hasExemptionOrClarification = labels.some(label => 
+      [LABELS.CLARIFICATION_REQUESTED, LABELS.EXEMPTION_REQUESTED].includes(label)
+    );
+
+    // Skip if PR doesn't have community review label or has exemption/clarification
+    if (!labels.includes(LABELS.COMMUNITY_REVIEW) || hasExemptionOrClarification) {
+      continue;
+    }
+
+    const lastUpdated = new Date(pr.updatedAt);
+    const daysSinceUpdate = (Date.now() - lastUpdated) / MS_PER_HOUR;
+
+    // Skip if PR update is within the days threshold
+    if (daysSinceUpdate <= DAYS_THRESHOLD) {
+      continue;
+    }
+
+    console.log(`Processing PR #${pr.number} for ${PRIORITIES.R5} priority consideration`);
 
     try {
       // Check if PR is already in project
@@ -96,7 +114,7 @@ module.exports = async ({ github }) => {
       }
 
       // Add new PR to project with R5 priority
-      console.log(`Adding PR #${pr.number} to project with ${PRIORITIES.R5.name} priority`);
+      console.log(`Adding PR #${pr.number} to project with ${PRIORITIES.R5} priority`);
       
       const addResult = await addItemToProject({
         github,
