@@ -5,7 +5,7 @@
  * (if not already in board) or updated to R2 priority (if already in board with different priority).
  */
 
-const { PRIORITIES, LABELS, ...PROJECT_CONFIG } = require("./project-config");
+const { PRIORITIES, LABELS, STATUS, ...PROJECT_CONFIG } = require("./project-config");
 
 const {
   updateProjectField,
@@ -59,7 +59,7 @@ module.exports = async ({ github }) => {
   )?.id;
 
   const readyStatusId = statusField.options.find(
-    (option) => option.name === "Ready"
+    (option) => option.name === STATUS.READY
   )?.id;
 
  for (const pr of allPRs) {

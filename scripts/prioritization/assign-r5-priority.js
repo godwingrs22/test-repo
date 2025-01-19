@@ -6,7 +6,7 @@
  * community reviews.
  */
 
-const { PRIORITIES, LABELS, DAYS_THRESHOLD, ...PROJECT_CONFIG } = require("./project-config");
+const { PRIORITIES, LABELS, STATUS, DAYS_THRESHOLD, ...PROJECT_CONFIG } = require("./project-config");
 
 const {
   updateProjectField,
@@ -63,7 +63,7 @@ module.exports = async ({ github }) => {
   )?.id;
 
   const readyStatusId = statusField.options.find(
-    (option) => option.name === "Ready"
+    (option) => option.name === STATUS.READY
   )?.id;
 
   for (const pr of allPRs) {
@@ -86,7 +86,7 @@ module.exports = async ({ github }) => {
     }
 
     const lastUpdated = new Date(pr.updatedAt);
-    const daysSinceUpdate = (Date.now() - lastUpdated) / MS_PER_HOUR;
+    const daysSinceUpdate = (Date.now() - lastUpdated) / MS_PER_DAY;
 
     // Skip if PR update is within the days threshold
     if (daysSinceUpdate <= DAYS_THRESHOLD) {
