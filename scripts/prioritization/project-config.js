@@ -14,8 +14,16 @@ const PRIORITIES = {
   R5: 'R5'
 };
 
+const STATUS = {
+  READY: 'Ready',
+  IN_PROGRESS: 'In Progress',
+  PAUSED: 'PAUSED',
+  ASSIGNED: 'Assigned',
+  DONE: 'Done'
+};
+
 // Time threshold for R5
-const DAYS_THRESHOLD = 1;
+const DAYS_THRESHOLD = 21;
 
 const ATTENTION_STATUS = {
   STALLED: {
@@ -45,6 +53,7 @@ module.exports = {
   attentionFieldId: "PVTSSF_lAHOAD1EYc4AwI4dzgmdOb0",
   LABELS,
   PRIORITIES,
+  STATUS,
   ATTENTION_STATUS,
   DAYS_THRESHOLD
 };

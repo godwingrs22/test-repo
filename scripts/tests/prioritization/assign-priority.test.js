@@ -1,8 +1,8 @@
-const { PRIORITIES, LABELS } = require('../../../scripts/prioritization/project-config');
+const { PRIORITIES, LABELS, STATUS, ...PROJECT_CONFIG} = require('../../../scripts/prioritization/project-config');
 const { 
     createMockPR, 
     createMockGithub,
-    createMockProjectItemResponse
+    OPTION_IDS
 } = require('./helpers/mock-data');
 
 const assignPriority = require('../../../scripts/prioritization/assign-priority');
@@ -17,60 +17,31 @@ describe('Priority Assignment (R1, R3, R4)', () => {
         jest.clearAllMocks();
     });
 
-    async function verifyProjectState(pr, expectedPriority, expectedStatus = 'Ready') {
-        const shouldExistInProject = expectedPriority !== null;
-
-        mockGithub.graphql.mockResolvedValueOnce(
-            createMockProjectItemResponse({
-            priority: expectedPriority,
-            status: expectedStatus,
-            exists: shouldExistInProject
-            })
-        );
-
-        const result = await mockGithub.graphql(`
-            query($contentId: ID!) {
-            node(id: $contentId) {
-                ... on PullRequest {
-                projectItems(first: 1) {
-                    nodes {
-                    id
-                    fieldValues(first: 8) {
-                        nodes {
-                        ... on ProjectV2ItemFieldSingleSelectValue {
-                            name
-                            field {
-                            name
-                            }
-                        }
-                        }
-                    }
-                    }
-                }
-                }
-            }
-            }
-        `, { contentId: pr.node_id });
+    async function verifyProjectState(expectedPriority, expectedStatus) {
+        const calls = mockGithub.graphql.mock.calls;
         
-        const projectItems = result?.node?.projectItems?.nodes ?? [];
-        
-        if (!shouldExistInProject) {
-            // Verify PR is not in project
-            expect(projectItems).toHaveLength(0);
+        if (!expectedPriority) {
+            const priorityUpdateCall = calls.find(call => 
+            call[1].input?.fieldId === PROJECT_CONFIG.priorityFieldId
+            );
+            expect(priorityUpdateCall).toBeUndefined();
             return;
         }
-
-        // PR should be in project, verify values
-        expect(projectItems).toHaveLength(1);
-        const projectItem = projectItems[0];
-
-        const priorityField = projectItem.fieldValues.nodes
-        .find(fv => fv.field.name === 'Priority');
-        const statusField = projectItem.fieldValues.nodes
-        .find(fv => fv.field.name === 'Status');
-
-        expect(priorityField?.name).toBe(expectedPriority);
-        expect(statusField?.name).toBe(expectedStatus);
+    
+        const priorityUpdateCall = calls.find(call => 
+            call[1].input?.fieldId === PROJECT_CONFIG.priorityFieldId
+        );
+        const statusUpdateCall = calls.find(call => 
+            call[1].input?.fieldId === PROJECT_CONFIG.statusFieldId
+        );
+    
+        // Verify priority was set correctly
+        expect(priorityUpdateCall[1].input.value.singleSelectOptionId)
+            .toBe(OPTION_IDS[expectedPriority]);
+    
+        // Verify status was set to Ready
+        expect(statusUpdateCall[1].input.value.singleSelectOptionId)
+            .toBe(OPTION_IDS[expectedStatus]);
     }
   
     describe('R1 Priority Tests', () => {
@@ -83,7 +54,19 @@ describe('Priority Assignment (R1, R3, R4)', () => {
         mockContext = { payload: { pull_request: pr } };
                   
         await assignPriority({ github: mockGithub, context: mockContext });
-        await verifyProjectState(pr, PRIORITIES.R1, 'Ready');
+        await verifyProjectState(PRIORITIES.R1, STATUS.READY);
+      });
+        
+      test('should assign R1 and Ready status to non-draft PR with contribution/core and needs-maintainer-review labels', async () => {
+        const pr = createMockPR({
+          draft: false,
+          labels: [LABELS.CORE, LABELS.MAINTAINER_REVIEW]
+        });
+  
+        mockContext = { payload: { pull_request: pr } };
+                  
+        await assignPriority({ github: mockGithub, context: mockContext });
+        await verifyProjectState(PRIORITIES.R1, STATUS.READY);
       });
   
       test('should not add draft PR with contribution/core label to project', async () => {
@@ -95,7 +78,7 @@ describe('Priority Assignment (R1, R3, R4)', () => {
         mockContext = { payload: { pull_request: pr } };
         
         await assignPriority({ github: mockGithub, context: mockContext });
-        await verifyProjectState(pr, null);
+        await verifyProjectState(null);
       });
     });
   
@@ -109,22 +92,7 @@ describe('Priority Assignment (R1, R3, R4)', () => {
         mockContext = { payload: { pull_request: pr } };
         
         await assignPriority({ github: mockGithub, context: mockContext });
-        await verifyProjectState(pr, PRIORITIES.R3, 'Ready');
-      });
-  
-      test('should not assign R3 if PR has pr/reviewer-clarification-requested or pr-linter/exemption-requested labels', async () => {
-        const pr = createMockPR({
-          draft: false,
-          labels: [
-            LABELS.MAINTAINER_REVIEW,
-            LABELS.EXEMPTION_REQUESTED
-          ]
-        });
-  
-        mockContext = { payload: { pull_request: pr } };
-        
-        await assignPriority({ github: mockGithub, context: mockContext });
-        await verifyProjectState(pr, null);
+        await verifyProjectState(PRIORITIES.R3, STATUS.READY);
       });
 
       test('should not assign R3 to draft PR with needs-maintainer-review label', async () => {
@@ -136,12 +104,12 @@ describe('Priority Assignment (R1, R3, R4)', () => {
         mockContext = { payload: { pull_request: pr } };
         
         await assignPriority({ github: mockGithub, context: mockContext });
-        await verifyProjectState(pr, null);
+        await verifyProjectState(null);
       });
     });
   
     describe('R4 Priority Tests', () => {
-      test('should assign R4 and Ready status to PR with clarification and community review labels', async () => {
+      test('should assign R4 and Ready status to PR with pr/reviewer-clarification-requested and needs-community-review labels', async () => {
         const pr = createMockPR({
           draft: true,
           labels: [
@@ -153,9 +121,39 @@ describe('Priority Assignment (R1, R3, R4)', () => {
         mockContext = { payload: { pull_request: pr } };
         
         await assignPriority({ github: mockGithub, context: mockContext });
-        await verifyProjectState(pr, PRIORITIES.R4, 'Ready');
+        await verifyProjectState(PRIORITIES.R4, STATUS.READY);
       });
   
+      test('should assign R4 and Ready status to PR with pr-linter/exemption-requested and needs-community-review labels', async () => {
+        const pr = createMockPR({
+          draft: true,
+          labels: [
+            LABELS.EXEMPTION_REQUESTED,
+            LABELS.COMMUNITY_REVIEW
+          ]
+        });
+  
+        mockContext = { payload: { pull_request: pr } };
+        
+        await assignPriority({ github: mockGithub, context: mockContext });
+        await verifyProjectState(PRIORITIES.R4, STATUS.READY);
+      });
+
+      test('should assign R4 and Ready status to PR with pr/reviewer-clarification-requested and needs-maintainer-review labels', async () => {
+        const pr = createMockPR({
+          draft: true,
+          labels: [
+            LABELS.CLARIFICATION_REQUESTED,
+            LABELS.MAINTAINER_REVIEW
+          ]
+        });
+  
+        mockContext = { payload: { pull_request: pr } };
+        
+        await assignPriority({ github: mockGithub, context: mockContext });
+        await verifyProjectState(PRIORITIES.R4, STATUS.READY);
+      });
+        
       test('should assign R4 and Ready status to PR with pr-linter/exemption-requested and needs-maintainer-review labels', async () => {
         const pr = createMockPR({
           labels: [
@@ -167,10 +165,10 @@ describe('Priority Assignment (R1, R3, R4)', () => {
         mockContext = { payload: { pull_request: pr } };
         
         await assignPriority({ github: mockGithub, context: mockContext });
-        await verifyProjectState(pr, PRIORITIES.R4, 'Ready');
+        await verifyProjectState(PRIORITIES.R4, STATUS.READY);
       });
 
-      test('should assign R4 to PR with pr/reviewer-clarification-requested label and no review labels', async () => {
+      test('should assign R4 and Ready status to PR with pr/reviewer-clarification-requested label and no review labels', async () => {
         const pr = createMockPR({
           labels: [LABELS.CLARIFICATION_REQUESTED]
         });
@@ -178,18 +176,19 @@ describe('Priority Assignment (R1, R3, R4)', () => {
         mockContext = { payload: { pull_request: pr } };
         
         await assignPriority({ github: mockGithub, context: mockContext });
-        await verifyProjectState(pr, PRIORITIES.R4, 'Ready');
+        await verifyProjectState(PRIORITIES.R4, STATUS.READY);
       });
 
-      test('should assign R4 to PR with pr-linter/exemption-requested label and no review labels', async () => {
+      test('should assign R4 and Ready status to PR with pr-linter/exemption-requested label and no review labels', async () => {
         const pr = createMockPR({
+          draft: true,
           labels: [LABELS.EXEMPTION_REQUESTED]
         });
   
         mockContext = { payload: { pull_request: pr } };
         
         await assignPriority({ github: mockGithub, context: mockContext });
-        await verifyProjectState(pr, PRIORITIES.R4, 'Ready');
+        await verifyProjectState(PRIORITIES.R4, STATUS.READY);
       });
     });
 
@@ -206,7 +205,21 @@ describe('Priority Assignment (R1, R3, R4)', () => {
         mockContext = { payload: { pull_request: pr } };
         
         await assignPriority({ github: mockGithub, context: mockContext });
-        await verifyProjectState(pr, PRIORITIES.R1, 'Ready');
+        await verifyProjectState(PRIORITIES.R1, STATUS.READY);
+      });
+        
+      test('should assign R1 over R4 when PR has both contribution/core and pr/reviewer-clarification-requested labels', async () => {
+        const pr = createMockPR({
+          draft: false,
+          labels: [
+            LABELS.CORE,
+            LABELS.CLARIFICATION_REQUESTED
+          ]
+        });
+    
+        mockContext = { payload: { pull_request: pr } };
+        await assignPriority({ github: mockGithub, context: mockContext });
+        await verifyProjectState(PRIORITIES.R1, STATUS.READY);
       });
 
       test('should not assign any priority when no matching labels', async () => {
@@ -218,7 +231,7 @@ describe('Priority Assignment (R1, R3, R4)', () => {
         mockContext = { payload: { pull_request: pr } };
         
         await assignPriority({ github: mockGithub, context: mockContext });
-        await verifyProjectState(pr, null);
+        await verifyProjectState(null);
       });
     });
 });

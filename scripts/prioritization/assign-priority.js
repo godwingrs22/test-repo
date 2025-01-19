@@ -7,7 +7,7 @@
  */
 
 
-const { PRIORITIES, LABELS, ...PROJECT_CONFIG } = require('./project-config');
+const { PRIORITIES, LABELS, STATUS, ...PROJECT_CONFIG } = require('./project-config');
 const {
   updateProjectField,
   addItemToProject,
@@ -99,7 +99,7 @@ module.exports = async ({ github, context }) => {
 
       // Set Ready status
       const readyOptionId = statusField.options.find(
-        (option) => option.name === "Ready"
+        (option) => option.name === STATUS.READY
       )?.id;
 
       if (!readyOptionId) {
